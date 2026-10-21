@@ -48,14 +48,21 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :shared:packageMsi :shared:packageExe
+      - run: ./gradlew :shared:packageMsi :shared:packageExe :shared:createDistributable
         shell: bash
+      # Flat folder with space-free names: the release step only picks up top-level files.
+      - name: Collect Windows files
+        shell: pwsh
+        run: |
+          $b = "shared/build/compose/binaries/main"
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item (Get-ChildItem "$b/msi/*.msi")[0] out/AudioDucking-Windows-x64.msi
+          Copy-Item (Get-ChildItem "$b/exe/*.exe")[0] out/AudioDucking-Windows-x64-setup.exe
+          Compress-Archive -Path "$b/app/*" -DestinationPath out/AudioDucking-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: |
-            shared/build/compose/binaries/main/msi/*.msi
-            shared/build/compose/binaries/main/exe/*.exe
+          path: out/*
   publish:
     needs: [android, linux, windows]
     runs-on: ubuntu-latest
@@ -66,5 +73,5 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: dist/**/*
           generate_release_notes: true
